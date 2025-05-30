@@ -188,7 +188,7 @@ def analyze_costs(results_file: str = None):
                 if line.strip():
                     result = json.loads(line.strip())
                     
-                    # Skip entries without usage info (from old runs)
+                    # Skip entries without usage info
                     if 'usage_info' not in result or result.get('error'):
                         continue
                     
