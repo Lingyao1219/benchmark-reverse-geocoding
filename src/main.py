@@ -1,11 +1,12 @@
 import os
+import sys
 import base64
 import mimetypes
 import json
 import config
 from typing import List, Dict, Any
 from utils import query_llm, parse_json
-from prompt import system_prompt, image_location_prompt
+from prompt import SYSTEM_PROMPT, IMAGE_LOCATION_PROMPT
 
 
 def get_image_type(image_path):
@@ -37,7 +38,14 @@ def process_image(image_path: str) -> Dict[str, Any]:
         "model_used": config.MODEL,
         "raw_response": None,
         "location_info": None,
-        "error": None
+        "error": None,
+        # Add cost tracking fields
+        "usage_info": {
+            "input_tokens": 0,
+            "output_tokens": 0,
+            "total_tokens": 0,
+            "cost_usd": 0.0
+        }
     }
 
     print(f"\nProcessing image: {result['image_file']}")
@@ -53,15 +61,22 @@ def process_image(image_path: str) -> Dict[str, Any]:
         return result
     
     try:
-        response = query_llm(
-            text_prompt=image_location_prompt,
-            system_prompt=system_prompt,
+        # Updated to handle the tuple return from query_llm
+        response, usage_info = query_llm(
+            text_prompt=IMAGE_LOCATION_PROMPT,
+            system_prompt=SYSTEM_PROMPT,
             image_base64_data=image_base64,
             image_mime_type=image_type,
             model=config.MODEL,
-            provider=config.DEFAULT_PROVIDER,  # Pass the provider explicitly
+            provider=config.DEFAULT_PROVIDER,
         )
+        
         result["raw_response"] = response
+        result["usage_info"] = usage_info
+        
+        # Display cost information
+        print(f"  -> Cost: ${usage_info['cost_usd']:.6f}")
+        print(f"  -> Tokens: {usage_info['total_tokens']} ({usage_info['input_tokens']} in, {usage_info['output_tokens']} out)")
         
         if response:
             parsed_info = parse_json(response, default_value={"address": "Parse Failed", "reasoning": "Could not parse output."})
@@ -92,15 +107,56 @@ def main():
         return
 
     results = []
+    total_cost = 0.0
+    total_tokens = 0
+    successful_processes = 0
+    
     print(f"Found {len(image_files)} images to process.")
+    print(f"Using model: {config.MODEL} (Provider: {config.DEFAULT_PROVIDER})")
 
     for image_path in image_files:
         result = process_image(image_path)
         results.append(result)
+        
+        # Accumulate cost and token statistics
+        if not result.get("error"):
+            successful_processes += 1
+            total_cost += result["usage_info"]["cost_usd"]
+            total_tokens += result["usage_info"]["total_tokens"]
+        
         if result.get("location_info"):
-            print(f"  -> Guessed Address for {result['image_file']}: {result['location_info'].get('address', 'N/A')}")
+            location_info = result['location_info']
+            address_parts = []
+            if 'reverse_geocoding' in location_info and 'address' in location_info['reverse_geocoding']:
+                addr = location_info['reverse_geocoding']['address']
+                if addr.get('street'):
+                    address_parts.append(addr['street'])
+                if addr.get('city'):
+                    address_parts.append(addr['city'])
+                if addr.get('state'):
+                    address_parts.append(addr['state'])
+                if addr.get('country'):
+                    address_parts.append(addr['country'])
+                formatted_address = ', '.join(address_parts) if address_parts else 'Address not determined'
+                confidence = location_info['reverse_geocoding'].get('confidence', 'unknown')
+                print(f"  -> Guessed Address for {result['image_file']}: {formatted_address} (Confidence: {confidence})")
+            else:
+                print(f"  -> Guessed Address for {result['image_file']}: Unable to parse location data")
         if result.get("error"):
              print(f"  -> Error for {result['image_file']}: {result['error']}")
+
+    # Print summary statistics
+    print(f"\n" + "="*50)
+    print(f"PROCESSING SUMMARY")
+    print(f"="*50)
+    print(f"Total images processed: {len(image_files)}")
+    print(f"Successful processes: {successful_processes}")
+    print(f"Failed processes: {len(image_files) - successful_processes}")
+    print(f"Total cost: ${total_cost:.6f}")
+    print(f"Total tokens used: {total_tokens:,}")
+    if successful_processes > 0:
+        print(f"Average cost per image: ${total_cost/successful_processes:.6f}")
+        print(f"Average tokens per image: {total_tokens//successful_processes:,}")
 
     # Output as JSONL
     output_path = os.path.join(os.getcwd(), config.RESULTS_OUTPUT_FILE)
@@ -112,7 +168,80 @@ def main():
     except IOError as e:
         print(f"Error saving results: {e}")
 
+def analyze_costs(results_file: str = None):
+    """Analyze costs from previous runs"""
+    if not results_file:
+        results_file = config.RESULTS_OUTPUT_FILE
+    
+    if not os.path.exists(results_file):
+        print(f"Results file '{results_file}' not found.")
+        return
+    
+    total_cost = 0.0
+    total_tokens = 0
+    results_count = 0
+    model_stats = {}
+    
+    try:
+        with open(results_file, 'r') as f:
+            for line in f:
+                if line.strip():
+                    result = json.loads(line.strip())
+                    
+                    # Skip entries without usage info (from old runs)
+                    if 'usage_info' not in result or result.get('error'):
+                        continue
+                    
+                    usage = result['usage_info']
+                    model = result.get('model_used', 'unknown')
+                    
+                    total_cost += usage.get('cost_usd', 0)
+                    total_tokens += usage.get('total_tokens', 0)
+                    results_count += 1
+                    
+                    # Track by model
+                    if model not in model_stats:
+                        model_stats[model] = {
+                            'count': 0,
+                            'total_cost': 0.0,
+                            'total_tokens': 0
+                        }
+                    
+                    model_stats[model]['count'] += 1
+                    model_stats[model]['total_cost'] += usage.get('cost_usd', 0)
+                    model_stats[model]['total_tokens'] += usage.get('total_tokens', 0)
+        
+        print(f"\n" + "="*50)
+        print(f"COST ANALYSIS FROM {results_file}")
+        print(f"="*50)
+        print(f"Total successful runs: {results_count}")
+        print(f"Total cost: ${total_cost:.6f}")
+        print(f"Total tokens: {total_tokens:,}")
+        
+        if results_count > 0:
+            print(f"Average cost per run: ${total_cost/results_count:.6f}")
+            print(f"Average tokens per run: {total_tokens//results_count:,}")
+        
+        print(f"\nBy Model:")
+        for model, stats in model_stats.items():
+            avg_cost = stats['total_cost'] / stats['count'] if stats['count'] > 0 else 0
+            avg_tokens = stats['total_tokens'] // stats['count'] if stats['count'] > 0 else 0
+            print(f"  {model}:")
+            print(f"    Runs: {stats['count']}")
+            print(f"    Total cost: ${stats['total_cost']:.6f}")
+            print(f"    Avg cost/run: ${avg_cost:.6f}")
+            print(f"    Avg tokens/run: {avg_tokens:,}")
+    
+    except json.JSONDecodeError as e:
+        print(f"Error parsing results file: {e}")
+    except Exception as e:
+        print(f"Error analyzing costs: {e}")
+
+
 if __name__ == "__main__":
-    print("Starting image location guessing process...")
-    print(f"Reading images from: '{os.path.abspath(config.IMAGE_INPUT_FOLDER)}'")
-    main()
+    if len(sys.argv) > 1 and sys.argv[1] == "analyze":
+        analyze_costs()
+    else:
+        print("Starting image location guessing process...")
+        print(f"Reading images from: '{os.path.abspath(config.IMAGE_INPUT_FOLDER)}'")
+        main()
