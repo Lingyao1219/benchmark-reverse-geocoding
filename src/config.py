@@ -1,18 +1,24 @@
-# LLM Configuration
-MODEL = "meta-llama/Llama-4-Maverick-17B-128E-Instruct-FP8"
-
-DEFAULT_PROVIDER = "togetherai" 
-# openai, anthropic, togetherai
-
-# LLM Query Parameters
-TEMPERATURE = 0.2
-
-# File Configuration
-IMAGE_INPUT_FOLDER = "images"
-RESULTS_OUTPUT_FILE = "image_results.jsonl"
-
 # API Key Management
 SECRETS_FILE_PATH = "secrets.txt"
+
+# LLM Configuration
+MODEL = "gpt-4.1-mini"
+DEFAULT_PROVIDER = "openai" # openai, anthropic, togetherai
+
+# LLM Query Parameters
+TEMPERATURE = 0.7
+
+# File Configuration
+DATASET = "test_dataset22"
+
+# Save Filename
+if '/' in MODEL:
+    MODEL_FILENAME = MODEL.split('/')[-1]
+else:
+    MODEL_FILENAME = MODEL
+
+IMAGE_INPUT_FOLDER = f"data/{DATASET}"
+RESULTS_OUTPUT_FILE = f"result/{DATASET}_{MODEL_FILENAME}.jsonl"
 
 # o3
 # gpt-4.1
@@ -29,6 +35,7 @@ SECRETS_FILE_PATH = "secrets.txt"
 # meta-llama/Llama-4-Maverick-17B-128E-Instruct-FP8
 # meta-llama/Llama-4-Scout-17B-16E-Instruct
 
+# "o3": (2, 8),
 # "o3-mini": (1.1, 4.4),
 # "o4-mini": (1.1, 4.4),
 # "gpt-4.1": (2.0, 8.0),

@@ -5,7 +5,7 @@ import mimetypes
 import json
 import config
 from typing import List, Dict, Any
-from utils import query_llm, parse_json
+from model import query_llm, parse_json
 from prompt import SYSTEM_PROMPT, IMAGE_LOCATION_PROMPT
 
 
@@ -106,7 +106,6 @@ def main():
         print(f"No image files found in '{config.IMAGE_INPUT_FOLDER}'.")
         return
 
-    results = []
     total_cost = 0.0
     total_tokens = 0
     successful_processes = 0
@@ -114,10 +113,23 @@ def main():
     print(f"Found {len(image_files)} images to process.")
     print(f"Using model: {config.MODEL} (Provider: {config.DEFAULT_PROVIDER})")
 
+    # Define the output path once, before the loop.
+    output_path = os.path.join(os.getcwd(), config.RESULTS_OUTPUT_FILE)
+    output_dir = os.path.dirname(output_path)
+    os.makedirs(output_dir, exist_ok=True)
+    
+    print(f"Results will be saved to '{output_path}'")
+
     for image_path in image_files:
         result = process_image(image_path)
-        results.append(result)
         
+        # Append the result to the output file immediately.
+        try:
+            with open(output_path, 'a') as f:
+                f.write(json.dumps(result) + '\n')
+        except IOError as e:
+            print(f"  -> CRITICAL: Error saving result to file for {result['image_file']}: {e}")
+
         # Accumulate cost and token statistics
         if not result.get("error"):
             successful_processes += 1
@@ -158,15 +170,7 @@ def main():
         print(f"Average cost per image: ${total_cost/successful_processes:.6f}")
         print(f"Average tokens per image: {total_tokens//successful_processes:,}")
 
-    # Output as JSONL
-    output_path = os.path.join(os.getcwd(), config.RESULTS_OUTPUT_FILE)
-    try:
-        with open(output_path, 'a') as f:
-            for result in results:
-                f.write(json.dumps(result) + '\n')
-        print(f"\nProcessing complete. Results saved to '{output_path}' in JSONL format.")
-    except IOError as e:
-        print(f"Error saving results: {e}")
+    print(f"\nProcessing complete. All results have been saved to '{output_path}'.")
 
 def analyze_costs(results_file: str = None):
     """Analyze costs from previous runs"""

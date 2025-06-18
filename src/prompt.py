@@ -1,8 +1,13 @@
-SYSTEM_PROMPT = "You are an AI assistant specialized in geographical analysis from images. Respond in the requested JSON format."
+SYSTEM_PROMPT = "You are an AI assistant specialized in geocoding analysis from images."
 
 IMAGE_LOCATION_PROMPT = """
-Analyze the provided image to determine its location using a chain-of-thought approach. 
-Follow the chain-of-thought: First analyze the image information, then apply reasoning, finally determine the location.
+You are given an image. Use a step-by-step (chain-of-thought) reasoning process to infer the most likely location.
+
+Structure your response in three sections:
+
+1. **Image Information** — Describe the general setting of the image.
+2. **Reasoning** — Provide detailed justifications using observable visual cues.
+3. **Reverse Geocoding** — Output your best-guess location with a confidence score.
 
 Your response must be valid JSON in this exact format:
 
@@ -13,29 +18,28 @@ Your response must be valid JSON in this exact format:
     "setting": "urban|suburban|rural|natural"
   },
   "reasoning": {
-    "landmark_recognition": "iconic structures, architectural landmarks, natural features - or null if unsure",
-    "text_and_signage": "street signs, business names, license plates, visible text - or null if not visible",
-    "cultural_indicators": "architectural styles, regional patterns, cultural elements - or null if generic",
-    "spatial_context": "geographic relationships, infrastructure patterns - or null if insufficient"
+    "landmark_recognition": "e.g., iconic structures, architectural landmarks, natural featurese",
+    "text_and_signage": "e.g., street signs, business names, license plates, visible text",
+    "cultural_indicators": "e.g., architectural styles, regional patterns, cultural elements",
+    "spatial_context": "e.g., geographic relationships, infrastructure patterns"
   },
   "reverse_geocoding": {
-    "confidence": "high|medium|low",
+    "confidence": "1|2|3|4|5",
     "address": {
-      "street": "street address or null",
-      "city": "city name or null",
-      "state": "state/province or null", 
-      "country": "country name or null"
+      "street": "street address",
+      "city": "city name",
+      "state": "state/province", 
+      "country": "country name"
     },
     "coordinates": {
-      "latitude": "decimal degrees or null",
-      "longitude": "decimal degrees or null"
+      "latitude": "decimal degrees",
+      "longitude": "decimal degrees"
     }
   }
 }
 
 Examples:
 
-High Confidence:
 {
   "image_information": {
     "environment": "outdoor",
@@ -49,7 +53,7 @@ High Confidence:
     "spatial_context": "Midtown Manhattan street grid and building density patterns"
   },
   "reverse_geocoding": {
-    "confidence": "high",
+    "confidence": "5",
     "address": {
       "street": "350 5th Ave",
       "city": "New York",
@@ -63,38 +67,8 @@ High Confidence:
   }
 }
 
-Low Confidence:
-{
-  "image_information": {
-    "environment": "outdoor",
-    "scene_type": "scenery",
-    "setting": "suburban"
-  },
-  "reasoning": {
-    "landmark_recognition": null,
-    "text_and_signage": null,
-    "cultural_indicators": "Standard American suburban architecture and landscaping",
-    "spatial_context": "Typical suburban development layout"
-  },
-  "reverse_geocoding": {
-    "confidence": "low",
-    "address": {
-      "street": null,
-      "city": null,
-      "state": null,
-      "country": "USA"
-    },
-    "coordinates": {
-      "latitude": null,
-      "longitude": null
-    }
-  }
-}
-
-Rules:
+Guidance:
 - Return only valid JSON, no additional text
-- Use null for any field you cannot determine with reasonable confidence
-- Use null for reasoning dimensions if you cannot identify relevant elements
-- Do not fabricate information for reasoning - better to use null than provide uncertain details
+- Retrun a confidence score between 1 (low) and 5 (high)
 - For reverse geocoding, return only one location that you are mostly confident
 """
