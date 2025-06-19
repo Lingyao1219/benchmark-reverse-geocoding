@@ -1,290 +1,266 @@
-import json
 import re
-import ast
-from typing import Optional, Dict, Any, List, Tuple
-from openai import OpenAI
-import anthropic
+import os
+import sys
+import json
 import config
+import numpy as np
+import pandas as pd
+from math import radians, cos, sin, asin, sqrt
 
-# Cost tracking configuration (prices per 1M tokens)
-MODEL_COSTS = {
-    # OpenAI Models (input/output per 1M tokens)
-    "o3": (10.0, 40.0),
-    "o3-mini": (1.1, 4.4),
-    "o4-mini": (1.1, 4.4),
-    "gpt-4.1": (2.0, 8.0),
-    "gpt-4.1-mini": (0.4, 1.6), 
-    "gpt-4.1-nano": (0.1, 0.4), 
-    "gpt-4o": (5.0, 20.0),
-    "gpt-4o-mini": (0.60, 2.4),
-    
-    # Anthropic Models
-    "claude-3-5-sonnet-20241022": (3.0, 15.0),
-    "claude-3-5-haiku-20241022": (0.8, 4.0),
-    "claude-3-7-sonnet-20250219": (3.0, 15.0),
-    
-    # Together AI Models
-    "Qwen/Qwen2.5-7B-Instruct-Turbo": (0.30, 0.30),
-    "Qwen/QwQ-32B": (1.2, 1.2),
-    "Qwen/Qwen2.5-VL-72B-Instruct": (1.20, 1.20),
-    "meta-llama/Llama-3.2-11B-Vision-Instruct-Turbo": (0.18, 0.18),
-    "meta-llama/Llama-3.2-90B-Vision-Instruct-Turbo": (1.20, 1.20),
-    "meta-llama/Llama-4-Maverick-17B-128E-Instruct-FP8": (0.27, 0.85),
-    "meta-llama/Llama-4-Scout-17B-16E-Instruct": (0.18, 0.59),
+
+STATE_MAPPING = {
+    'alabama': 'AL', 'alaska': 'AK', 'arizona': 'AZ', 'arkansas': 'AR', 'california': 'CA',
+    'colorado': 'CO', 'connecticut': 'CT', 'delaware': 'DE', 'florida': 'FL', 'georgia': 'GA',
+    'hawaii': 'HI', 'idaho': 'ID', 'illinois': 'IL', 'indiana': 'IN', 'iowa': 'IA',
+    'kansas': 'KS', 'kentucky': 'KY', 'louisiana': 'LA', 'maine': 'ME', 'maryland': 'MD',
+    'massachusetts': 'MA', 'michigan': 'MI', 'minnesota': 'MN', 'mississippi': 'MS',
+    'missouri': 'MO', 'montana': 'MT', 'nebraska': 'NE', 'nevada': 'NV', 'new hampshire': 'NH',
+    'new jersey': 'NJ', 'new mexico': 'NM', 'new york': 'NY', 'north carolina': 'NC',
+    'north dakota': 'ND', 'ohio': 'OH', 'oklahoma': 'OK', 'oregon': 'OR', 'pennsylvania': 'PA',
+    'rhode island': 'RI', 'south carolina': 'SC', 'south dakota': 'SD', 'tennessee': 'TN',
+    'texas': 'TX', 'utah': 'UT', 'vermont': 'VT', 'virginia': 'VA', 'washington': 'WA',
+    'west virginia': 'WV', 'wisconsin': 'WI', 'wyoming': 'WY'
 }
 
-def estimate_tokens(text: str) -> int:
-    """Rough estimation: ~4 characters per token for most models"""
-    return len(text) // 4
 
-def calculate_cost(input_tokens: int, output_tokens: int, model: str) -> float:
-    """Calculate cost based on token usage and model pricing"""
-    if model not in MODEL_COSTS:
-        print(f"Warning: No pricing data for model {model}")
-        return 0.0
-    
-    input_cost_per_1m, output_cost_per_1m = MODEL_COSTS[model]
-    
-    input_cost = (input_tokens / 1_000_000) * input_cost_per_1m
-    output_cost = (output_tokens / 1_000_000) * output_cost_per_1m
-    
-    return input_cost + output_cost
+def process_jsonl_to_dataframe(file_path: str):
+    """
+    Reads a JSONL file and creates a custom flattened pandas DataFrame
+    with simplified column names as requested.
+    """
+    if not os.path.exists(file_path):
+        print(f"Error: File not found at '{file_path}'")
+        sys.exit(1)
 
-def load_api_key(provider: str) -> str:
-    provider_key_map = {
-        'openai': 'openai_key',
-        'anthropic': 'claude_key',
-        'togetherai': 'together_key'
-    }
-    key_identifier = provider_key_map.get(provider.lower())
-    if not key_identifier:
-        raise ValueError(f"Unknown provider: {provider}")
-    try:
-        with open(config.SECRETS_FILE_PATH) as f:
-            lines = f.readlines()
-            for line in lines:
-                parts = line.strip().split(',')
-                if len(parts) >= 2 and parts[0].strip() == key_identifier:
-                    return parts[1].strip()
-        raise ValueError(f"{key_identifier} not found in {config.SECRETS_FILE_PATH}")
-    except FileNotFoundError:
-        raise ValueError(f"Secrets file not found: {config.SECRETS_FILE_PATH}")
-
-def query_openai(
-    messages_payload: List[Dict[str, Any]],
-    model: str
-) -> Tuple[str, Dict[str, Any]]:
-    api_key = load_api_key(provider='openai')
-    client = OpenAI(api_key=api_key)
-
-    response_format_param = {"type": "json_object"}
-
-    if any(m in model for m in ["o3", "o3-mini"]):
-        response = client.chat.completions.create(
-            model=model,
-            messages=messages_payload,
-            response_format=response_format_param
-        )
-    else:
-        response = client.chat.completions.create(
-            model=model,
-            messages=messages_payload,
-            temperature=config.TEMPERATURE,
-            response_format=response_format_param
-        )
-    
-    # Extract usage info
-    usage_info = {
-        'input_tokens': response.usage.prompt_tokens if response.usage else 0,
-        'output_tokens': response.usage.completion_tokens if response.usage else 0,
-        'total_tokens': response.usage.total_tokens if response.usage else 0
-    }
-    
-    return response.choices[0].message.content, usage_info
-
-def query_claude(
-    system_prompt: str,
-    user_content_blocks: List[Dict[str, Any]],
-    model: str,
-    temperature: float
-) -> Tuple[str, Dict[str, Any]]:
-    api_key = load_api_key(provider='anthropic')
-    client = anthropic.Anthropic(api_key=api_key)
-    anthropic_messages = [{"role": "user", "content": user_content_blocks}]
-
-    response = client.messages.create(
-        model=model,
-        system=system_prompt,
-        messages=anthropic_messages,
-        temperature=temperature,
-        max_tokens=5000
-    )
-    
-    # Extract usage info
-    usage_info = {
-        'input_tokens': response.usage.input_tokens,
-        'output_tokens': response.usage.output_tokens,
-        'total_tokens': response.usage.input_tokens + response.usage.output_tokens
-    }
-    
-    for item in response.content:
-        if item.type == 'text':
-            return item.text, usage_info
-    return "", usage_info
-
-def query_togetherai(
-    messages_payload: List[Dict[str, Any]],
-    model: str,
-    temperature: float
-) -> Tuple[str, Dict[str, Any]]:
-    api_key = load_api_key(provider='togetherai')
-    client = OpenAI(api_key=api_key, base_url="https://api.together.xyz/v1")
-    response = client.chat.completions.create(
-        model=model,
-        messages=messages_payload,
-        temperature=temperature,
-    )
-    
-    # Extract usage info (TogetherAI uses OpenAI format)
-    usage_info = {
-        'input_tokens': response.usage.prompt_tokens if response.usage else 0,
-        'output_tokens': response.usage.completion_tokens if response.usage else 0,
-        'total_tokens': response.usage.total_tokens if response.usage else 0
-    }
-    
-    return response.choices[0].message.content, usage_info
-
-def query_llm(
-    text_prompt: str,
-    system_prompt: Optional[str] = None,
-    image_base64_data: Optional[str] = None,
-    image_mime_type: Optional[str] = None,
-    model: Optional[str] = config.MODEL,
-    provider: Optional[str] = None,
-) -> Tuple[str, Dict[str, Any]]:
-    model = model or config.MODEL
-
-    common_system_prompt = system_prompt or "You are a helpful AI assistant."
-    if "json" in text_prompt.lower() and "JSON" not in common_system_prompt:
-        common_system_prompt += " Ensure your response is a valid JSON object."
-
-    if provider == "openai":
-        user_content: List[Dict[str, Any]] = [{"type": "text", "text": text_prompt}]
-        if image_base64_data and image_mime_type:
-            user_content.append({
-                "type": "image_url",
-                "image_url": {"url": f"data:{image_mime_type};base64,{image_base64_data}"}
-            })
-        messages_payload: List[Dict[str, Any]] = []
-        if common_system_prompt:
-            messages_payload.append({"role": "system", "content": common_system_prompt})
-        messages_payload.append({"role": "user", "content": user_content})
-        
-        response_text, usage_info = query_openai(messages_payload, model)
-        
-    elif provider == "anthropic":
-        user_content_blocks_list: List[Dict[str, Any]] = [{"type": "text", "text": text_prompt}]
-        if image_base64_data and image_mime_type:
-            user_content_blocks_list.insert(0, {
-                "type": "image",
-                "source": {
-                    "type": "base64",
-                    "media_type": image_mime_type,
-                    "data": image_base64_data,
-                },
-            })
-        response_text, usage_info = query_claude(common_system_prompt, user_content_blocks_list, model, config.TEMPERATURE)
-        
-    elif provider == "togetherai":
-        user_content_tg: List[Dict[str, Any]] = [{"type": "text", "text": text_prompt}]
-        if image_base64_data and image_mime_type:
-            user_content_tg.append({
-                "type": "image_url",
-                "image_url": {"url": f"data:{image_mime_type};base64,{image_base64_data}"}
-            })
-        messages_payload_tg: List[Dict[str, Any]] = []
-        if common_system_prompt:
-            messages_payload_tg.append({"role": "system", "content": common_system_prompt})
-        messages_payload_tg.append({"role": "user", "content": user_content_tg})
-        
-        response_text, usage_info = query_togetherai(messages_payload_tg, model, config.TEMPERATURE)
-        
-    else:
-        raise ValueError(f"Unsupported provider: {provider}")
-    
-    # Calculate cost
-    cost = calculate_cost(usage_info['input_tokens'], usage_info['output_tokens'], model)
-    usage_info['cost_usd'] = cost
-    usage_info['model'] = model
-    
-    return response_text, usage_info
-
-def parse_json(response_text: Optional[str], default_value: Optional[Dict] = None) -> Dict[str, Any]:
-    if default_value is None:
-        default_value = {}
-    if not response_text:
-        return default_value
-
-    text_to_parse = response_text.strip()
-
-    match_json_block = re.search(r"```(?:json)?\s*([\s\S]*?)\s*```", text_to_parse, re.DOTALL)
-    if match_json_block:
-        text_to_parse = match_json_block.group(1).strip()
-
-    try:
-        return json.loads(text_to_parse)
-    except json.JSONDecodeError:
-        pass
-
-    cleaned_text = text_to_parse
-    cleaned_text = cleaned_text.replace("None", "null").replace("True", "true").replace("False", "false")
-    try:
-        return json.loads(cleaned_text)
-    except json.JSONDecodeError:
-        pass
-
-    try:
-        evaluated = ast.literal_eval(cleaned_text)
-        if isinstance(evaluated, (dict, list)):
-            return json.loads(json.dumps(evaluated))
-    except (ValueError, SyntaxError, TypeError, MemoryError): 
-        pass 
-
-    if '{' in cleaned_text and '}' in cleaned_text:
-        temp_cleaned_text = re.sub(r'(?<=[{\s,])([a-zA-Z_][a-zA-Z0-9_]*)\s*:', r'"\1":', cleaned_text)
-        if "'" in temp_cleaned_text:
-            temp_cleaned_text = temp_cleaned_text.replace("'", '"')
-        
-        temp_cleaned_text = re.sub(r',\s*([}\]])', r'\1', temp_cleaned_text)
-        try:
-            return json.loads(temp_cleaned_text)
-        except json.JSONDecodeError:
-            pass
-
-    if not match_json_block: 
-        start_index = -1
-        first_brace = text_to_parse.find('{')
-        first_bracket = text_to_parse.find('[')
-
-        if first_brace != -1 and (first_bracket == -1 or first_brace < first_bracket):
-            start_index = first_brace
-            end_index = text_to_parse.rfind('}')
-        elif first_bracket != -1:
-            start_index = first_bracket
-            end_index = text_to_parse.rfind(']')
-        else:
-            end_index = -1
-
-        if start_index != -1 and end_index > start_index:
-            potential_json = text_to_parse[start_index : end_index+1]
+    print(f"Reading data from '{file_path}'...")
+    records = []
+    with open(file_path, 'r', encoding='utf-8') as f:
+        for line in f:
             try:
-                cleaned_potential_json = potential_json.replace("None", "null").replace("True", "true").replace("False", "false")
-                cleaned_potential_json = re.sub(r'(?<=[{\s,])([a-zA-Z_][a-zA-Z0-9_]*\s*:', r'"\1":', cleaned_potential_json)
-                if "'" in cleaned_potential_json:
-                    cleaned_potential_json = cleaned_potential_json.replace("'", '"')
-                cleaned_potential_json = re.sub(r',\s*([}\]])', r'\1', cleaned_potential_json)
-                return json.loads(cleaned_potential_json)
+                records.append(json.loads(line))
             except json.JSONDecodeError:
-                pass
+                print(f"Warning: Skipping malformed JSON line: {line.strip()}")
+                continue
+    
+    if not records:
+        print("No valid JSON records were found in the file.")
+        return None
 
-    return default_value
+    processed_records = []
+    for record in records:
+        location_info = record.get('location_info', {}) or {}
+        image_info = location_info.get('image_information', {}) or {}
+        reasoning = location_info.get('reasoning', {}) or {}
+        reverse_geocoding = location_info.get('reverse_geocoding', {}) or {}
+        address = reverse_geocoding.get('address', {}) or {}
+        coordinates = reverse_geocoding.get('coordinates', {}) or {}
+        usage_info = record.get('usage_info', {}) or {}
+
+        # Extract and clean coordinates
+        lat = coordinates.get('latitude')
+        lon = coordinates.get('longitude')
+        
+        try:
+            lat = float(lat) if lat is not None and str(lat).lower() not in ['null', 'none', ''] else None
+            if lat == 0.0:
+                lat = None
+        except (ValueError, TypeError):
+            lat = None
+            
+        try:
+            lon = float(lon) if lon is not None and str(lon).lower() not in ['null', 'none', ''] else None
+            if lon == 0.0:
+                lon = None
+        except (ValueError, TypeError):
+            lon = None
+
+        flat_record = {
+            'image_file': record.get('image_file'),
+            'model_used': record.get('model_used'),
+
+            'environment': image_info.get('environment'),
+            'scene_type': image_info.get('scene_type'),
+            'setting': image_info.get('setting'),
+
+            'landmark_recognition': reasoning.get('landmark_recognition'),
+            'text_and_signage': reasoning.get('text_and_signage'),
+            'cultural_indicators': reasoning.get('cultural_indicators'),
+            'spatial_context': reasoning.get('spatial_context'),
+            
+            'confidence': reverse_geocoding.get('confidence'),
+            'street': address.get('street'),
+            'city': address.get('city'),
+            'state': address.get('state'),
+            'country': address.get('country'),
+            'latitude': lat,
+            'longitude': lon
+        }
+        processed_records.append(flat_record)
+
+    # Create DataFrame directly from the list of flat dictionaries
+    df = pd.DataFrame(processed_records)
+    core_cols = [
+        'image_file', 'model_used', 'confidence', 'street', 'city', 'state', 
+        'country', 'latitude', 'longitude'
+    ]
+    
+    existing_core_cols = [col for col in core_cols if col in df.columns]
+    other_cols = [col for col in df.columns if col not in existing_core_cols]
+    df = df[existing_core_cols + other_cols]
+
+    return df
+
+
+def parse_address(address_str):
+    """
+    Parse address string into street, city, and state components.
+    This version works backward from the end of the string for better accuracy.
+    """
+    if pd.isna(address_str) or not isinstance(address_str, str) or address_str.strip() == '':
+        return {'street': '', 'city': '', 'state': ''}
+
+    # Clean and split the address into parts based on commas
+    address_str = address_str.strip()
+    parts = [part.strip() for part in address_str.split(',')]
+
+    street = ''
+    city = ''
+    state = ''
+
+    if len(parts) >= 3:
+        state_zip_part = parts[-1]
+        city = parts[-2]
+        street = ", ".join(parts[:-2])
+        state_match = re.search(r'\b([A-Z]{2})\b', state_zip_part)
+        state = state_match.group(1) if state_match else ''
+
+    elif len(parts) == 2:
+        street = parts[0]
+        city_state_part = parts[1]
+        state_match = re.search(r'\b([A-Z]{2})\b', city_state_part)
+        if state_match:
+            state = state_match.group(1)
+            city = city_state_part[:state_match.start()].strip()
+        else:
+            city = city_state_part
+            state = ''
+            
+    # If there's only one part
+    else:
+        street = parts[0]
+        state_match = re.search(r'\b([A-Z]{2})\b', street)
+        if state_match:
+            state = state_match.group(1)
+
+    return {
+        'street': street,
+        'city': city,
+        'state': state
+    }
+
+
+def standardize_state(state_val):
+    if pd.isna(state_val) or state_val == '':
+        return np.nan
+    state_str = str(state_val).strip().lower()
+    if len(state_str) == 2 and state_str.isalpha():
+        return state_str.upper()
+    return STATE_MAPPING.get(state_str, state_str.upper())
+
+
+def haversine_distance(lat1, lon1, lat2, lon2):
+    """
+    Calculate the great circle distance between two points 
+    on the earth (specified in decimal degrees) in kilometers
+    """
+    try:
+        # Convert to float first, then to radians
+        lat1, lon1, lat2, lon2 = map(float, [lat1, lon1, lat2, lon2])
+        lat1, lon1, lat2, lon2 = map(radians, [lat1, lon1, lat2, lon2])
+        
+        # Haversine formula
+        dlat = lat2 - lat1
+        dlon = lon2 - lon1
+        a = sin(dlat/2)**2 + cos(lat1) * cos(lat2) * sin(dlon/2)**2
+        c = 2 * asin(sqrt(a))
+        
+        # Radius of earth in kilometers
+        r = 6371
+        return c * r
+    except (ValueError, TypeError):
+        return np.nan
+
+
+def calculate_distances(df):
+    """
+    Calculate distances between coordinates
+    """
+    df_with_dist = df.copy()
+    
+    # Only calculate distance where both coordinate pairs are available
+    valid_coords = ~(df_with_dist[['latitude', 'longitude', 'true_latitude', 'true_longitude']].isna().any(axis=1))
+    
+    distances = []
+    for idx, row in df_with_dist.iterrows():
+        if valid_coords.iloc[idx]:
+            dist = haversine_distance(
+                row['latitude'], row['longitude'],
+                row['true_latitude'], row['true_longitude']
+            )
+            distances.append(dist)
+        else:
+            distances.append(np.nan)
+    
+    df_with_dist['distance_km'] = distances
+    return df_with_dist
+
+
+def analyze_accuracy(df):
+    """
+    Analyze accuracy between city/state pairs
+    """
+    print("=== ACCURACY ANALYSIS ===\n")
+    
+    # City accuracy
+    print("1. CITY ACCURACY:")
+    valid_cities = ~(df['city'].isna() | df['true_city'].isna())
+    total_valid_cities = valid_cities.sum()
+    
+    if total_valid_cities > 0:
+        city_matches = (df.loc[valid_cities, 'city'].str.lower() == df.loc[valid_cities, 'true_city'].str.lower())
+        city_accuracy = city_matches.mean()
+        print(f"   Valid city pairs: {total_valid_cities}")
+        print(f"   Exact matches: {city_matches.sum()}")
+        print(f"   City accuracy: {city_accuracy:.2%}")
+    else:
+        print("   No valid city pairs found")
+    
+    # State accuracy
+    print("\n2. STATE ACCURACY:")
+    valid_states = ~(df['state'].isna() | df['true_state'].isna())
+    total_valid_states = valid_states.sum()
+    
+    if total_valid_states > 0:
+        state_matches = (df.loc[valid_states, 'state'] == df.loc[valid_states, 'true_state'])
+        state_accuracy = state_matches.mean()
+        print(f"   Valid state pairs: {total_valid_states}")
+        print(f"   Exact matches: {state_matches.sum()}")
+        print(f"   State accuracy: {state_accuracy:.2%}")
+    else:
+        print("   No valid state pairs found")
+    
+    # Distance analysis
+    print("\n3. COORDINATE DISTANCE ANALYSIS:")
+    valid_distances = ~df['distance_km'].isna()
+    if valid_distances.sum() > 0:
+        distances = df.loc[valid_distances, 'distance_km']
+        print(f"   Valid coordinate pairs: {valid_distances.sum()}")
+        print(f"   Mean distance: {distances.mean():.2f} km")
+        print(f"   Median distance: {distances.median():.2f} km")
+        print(f"   Max distance: {distances.max():.2f} km")
+        print(f"   Min distance: {distances.min():.2f} km")
+        print(f"   Std deviation: {distances.std():.2f} km")
+    else:
+        print("   No valid coordinate pairs found")
+    
+    return df
