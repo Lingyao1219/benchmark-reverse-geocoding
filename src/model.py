@@ -8,13 +8,13 @@ import config
 
 # Cost tracking configuration (prices per 1M tokens)
 MODEL_COSTS = {
-    # OpenAI Models (input/output per 1M tokens)
+    # OpenAI Models
     "o3": (2.0, 8.0),
     "o3-mini": (1.1, 4.4),
     "o4-mini": (1.1, 4.4),
     "gpt-4.1": (2.0, 8.0),
-    "gpt-4.1-mini": (0.4, 1.6), 
-    "gpt-4.1-nano": (0.1, 0.4), 
+    "gpt-4.1-mini": (0.4, 1.6),
+    "gpt-4.1-nano": (0.1, 0.4),
     "gpt-4o": (5.0, 20.0),
     "gpt-4o-mini": (0.60, 2.4),
     
@@ -145,7 +145,6 @@ def query_togetherai(
         temperature=temperature,
     )
     
-    # Extract usage info (TogetherAI uses OpenAI format)
     usage_info = {
         'input_tokens': response.usage.prompt_tokens if response.usage else 0,
         'output_tokens': response.usage.completion_tokens if response.usage else 0,
@@ -219,6 +218,7 @@ def query_llm(
     
     return response_text, usage_info
 
+
 def parse_json(response_text: Optional[str], default_value: Optional[Dict] = None) -> Dict[str, Any]:
     if default_value is None:
         default_value = {}
@@ -236,8 +236,7 @@ def parse_json(response_text: Optional[str], default_value: Optional[Dict] = Non
     except json.JSONDecodeError:
         pass
 
-    cleaned_text = text_to_parse
-    cleaned_text = cleaned_text.replace("None", "null").replace("True", "true").replace("False", "false")
+    cleaned_text = text_to_parse.replace("None", "null").replace("True", "true").replace("False", "false")
     try:
         return json.loads(cleaned_text)
     except json.JSONDecodeError:
@@ -262,29 +261,24 @@ def parse_json(response_text: Optional[str], default_value: Optional[Dict] = Non
             pass
 
     if not match_json_block: 
-        start_index = -1
-        first_brace = text_to_parse.find('{')
-        first_bracket = text_to_parse.find('[')
+        start_index, end_index = -1, -1
+        first_brace, first_bracket = text_to_parse.find('{'), text_to_parse.find('[')
 
         if first_brace != -1 and (first_bracket == -1 or first_brace < first_bracket):
-            start_index = first_brace
-            end_index = text_to_parse.rfind('}')
+            start_index, end_index = first_brace, text_to_parse.rfind('}')
         elif first_bracket != -1:
-            start_index = first_bracket
-            end_index = text_to_parse.rfind(']')
-        else:
-            end_index = -1
+            start_index, end_index = first_bracket, text_to_parse.rfind(']')
 
         if start_index != -1 and end_index > start_index:
             potential_json = text_to_parse[start_index : end_index+1]
             try:
                 cleaned_potential_json = potential_json.replace("None", "null").replace("True", "true").replace("False", "false")
-                cleaned_potential_json = re.sub(r'(?<=[{\s,])([a-zA-Z_][a-zA-Z0-9_]*\s*:', r'"\1":', cleaned_potential_json)
+                cleaned_potential_json = re.sub(r'(?<=[{\s,])([a-zA-Z_][a-zA-Z0-9_]*)\s*:', r'"\1":', cleaned_potential_json)
                 if "'" in cleaned_potential_json:
                     cleaned_potential_json = cleaned_potential_json.replace("'", '"')
                 cleaned_potential_json = re.sub(r',\s*([}\]])', r'\1', cleaned_potential_json)
                 return json.loads(cleaned_potential_json)
-            except json.JSONDecodeError:
+            except (json.JSONDecodeError, re.error):
                 pass
 
     return default_value

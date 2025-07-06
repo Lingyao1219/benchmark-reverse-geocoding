@@ -48,13 +48,34 @@ def process_jsonl_to_dataframe(file_path: str):
 
     processed_records = []
     for record in records:
-        location_info = record.get('location_info', {}) or {}
-        image_info = location_info.get('image_information', {}) or {}
-        reasoning = location_info.get('reasoning', {}) or {}
-        reverse_geocoding = location_info.get('reverse_geocoding', {}) or {}
-        address = reverse_geocoding.get('address', {}) or {}
-        coordinates = reverse_geocoding.get('coordinates', {}) or {}
-        usage_info = record.get('usage_info', {}) or {}
+        location_info = record.get('location_info', {})
+        if not isinstance(location_info, dict):
+            location_info = {}
+
+        image_info = location_info.get('image_information', {})
+        if not isinstance(image_info, dict):
+            image_info = {}
+
+        reasoning = location_info.get('reasoning', {})
+        if not isinstance(reasoning, dict):
+            reasoning = {}
+
+        reverse_geocoding = location_info.get('reverse_geocoding', {})
+        if not isinstance(reverse_geocoding, dict):
+            reverse_geocoding = {}
+            
+        address = reverse_geocoding.get('address', {})
+        if not isinstance(address, dict):
+            address = {}
+            
+        coordinates = reverse_geocoding.get('coordinates', {})
+        if not isinstance(coordinates, dict):
+            coordinates = {}
+            
+        usage_info = record.get('usage_info', {})
+        if not isinstance(usage_info, dict):
+            usage_info = {}
+
 
         # Extract and clean coordinates
         lat = coordinates.get('latitude')
@@ -109,6 +130,7 @@ def process_jsonl_to_dataframe(file_path: str):
     df = df[existing_core_cols + other_cols]
 
     return df
+
 
 
 def parse_address(address_str):

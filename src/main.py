@@ -39,7 +39,6 @@ def process_image(image_path: str) -> Dict[str, Any]:
         "raw_response": None,
         "location_info": None,
         "error": None,
-        # Add cost tracking fields
         "usage_info": {
             "input_tokens": 0,
             "output_tokens": 0,
@@ -61,7 +60,6 @@ def process_image(image_path: str) -> Dict[str, Any]:
         return result
     
     try:
-        # Updated to handle the tuple return from query_llm
         response, usage_info = query_llm(
             text_prompt=IMAGE_LOCATION_PROMPT,
             system_prompt=SYSTEM_PROMPT,
@@ -74,7 +72,6 @@ def process_image(image_path: str) -> Dict[str, Any]:
         result["raw_response"] = response
         result["usage_info"] = usage_info
         
-        # Display cost information
         print(f"  -> Cost: ${usage_info['cost_usd']:.6f}")
         print(f"  -> Tokens: {usage_info['total_tokens']} ({usage_info['input_tokens']} in, {usage_info['output_tokens']} out)")
         
@@ -97,40 +94,62 @@ def main():
         print(f"Error: Input folder '{config.IMAGE_INPUT_FOLDER}' not found. Please create it and add images.")
         return
         
-    image_files = []
+    all_image_files = []
     for f_name in os.listdir(config.IMAGE_INPUT_FOLDER):
         if f_name.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.webp')):
-            image_files.append(os.path.join(config.IMAGE_INPUT_FOLDER, f_name))
+            all_image_files.append(os.path.join(config.IMAGE_INPUT_FOLDER, f_name))
 
-    if not image_files:
+    if not all_image_files:
         print(f"No image files found in '{config.IMAGE_INPUT_FOLDER}'.")
         return
 
+    output_path = os.path.join(os.getcwd(), config.RESULTS_OUTPUT_FILE)
+    processed_images = set()
+    if os.path.exists(output_path):
+        print(f"Checking for previously processed images in '{output_path}'...")
+        try:
+            with open(output_path, 'r', encoding='utf-8') as f:
+                for line in f:
+                    try:
+                        res = json.loads(line)
+                        if 'image_file' in res:
+                            processed_images.add(res['image_file'])
+                    except json.JSONDecodeError:
+                        continue
+        except IOError as e:
+            print(f"Warning: Could not read existing results file: {e}")
+
+    image_files_to_process = [
+        path for path in all_image_files if os.path.basename(path) not in processed_images
+    ]
+    
+    if not image_files_to_process:
+        print("\nAll images in the folder have already been processed.")
+        print(f"Results are in '{output_path}'.")
+        return
+
+    print(f"\nFound {len(all_image_files)} total images. {len(processed_images)} already processed. {len(image_files_to_process)} to process now.")
+    
     total_cost = 0.0
     total_tokens = 0
     successful_processes = 0
     
-    print(f"Found {len(image_files)} images to process.")
     print(f"Using model: {config.MODEL} (Provider: {config.DEFAULT_PROVIDER})")
 
-    # Define the output path once, before the loop.
-    output_path = os.path.join(os.getcwd(), config.RESULTS_OUTPUT_FILE)
     output_dir = os.path.dirname(output_path)
     os.makedirs(output_dir, exist_ok=True)
     
     print(f"Results will be saved to '{output_path}'")
 
-    for image_path in image_files:
+    for image_path in image_files_to_process:
         result = process_image(image_path)
         
-        # Append the result to the output file immediately.
         try:
             with open(output_path, 'a') as f:
                 f.write(json.dumps(result) + '\n')
         except IOError as e:
             print(f"  -> CRITICAL: Error saving result to file for {result['image_file']}: {e}")
 
-        # Accumulate cost and token statistics
         if not result.get("error"):
             successful_processes += 1
             total_cost += result["usage_info"]["cost_usd"]
@@ -141,15 +160,17 @@ def main():
             address_parts = []
             if 'reverse_geocoding' in location_info and 'address' in location_info['reverse_geocoding']:
                 addr = location_info['reverse_geocoding']['address']
-                if addr.get('street'):
-                    address_parts.append(addr['street'])
-                if addr.get('city'):
-                    address_parts.append(addr['city'])
-                if addr.get('state'):
-                    address_parts.append(addr['state'])
-                if addr.get('country'):
-                    address_parts.append(addr['country'])
-                formatted_address = ', '.join(address_parts) if address_parts else 'Address not determined'
+                formatted_address = 'Address not determined'
+                
+                if isinstance(addr, dict):
+                    if addr.get('street'): address_parts.append(addr['street'])
+                    if addr.get('city'): address_parts.append(addr['city'])
+                    if addr.get('state'): address_parts.append(addr['state'])
+                    if addr.get('country'): address_parts.append(addr['country'])
+                    if address_parts: formatted_address = ', '.join(address_parts)
+                elif isinstance(addr, str):
+                    formatted_address = addr
+                    
                 confidence = location_info['reverse_geocoding'].get('confidence', 'unknown')
                 print(f"  -> Guessed Address for {result['image_file']}: {formatted_address} (Confidence: {confidence})")
             else:
@@ -157,15 +178,15 @@ def main():
         if result.get("error"):
              print(f"  -> Error for {result['image_file']}: {result['error']}")
 
-    # Print summary statistics
     print(f"\n" + "="*50)
     print(f"PROCESSING SUMMARY")
     print(f"="*50)
-    print(f"Total images processed: {len(image_files)}")
-    print(f"Successful processes: {successful_processes}")
-    print(f"Failed processes: {len(image_files) - successful_processes}")
-    print(f"Total cost: ${total_cost:.6f}")
-    print(f"Total tokens used: {total_tokens:,}")
+    print(f"Total images in folder: {len(all_image_files)}")
+    print(f"Images processed this run: {len(image_files_to_process)}")
+    print(f"Successful processes this run: {successful_processes}")
+    print(f"Failed processes this run: {len(image_files_to_process) - successful_processes}")
+    print(f"Total cost this run: ${total_cost:.6f}")
+    print(f"Total tokens used this run: {total_tokens:,}")
     if successful_processes > 0:
         print(f"Average cost per image: ${total_cost/successful_processes:.6f}")
         print(f"Average tokens per image: {total_tokens//successful_processes:,}")
@@ -192,7 +213,6 @@ def analyze_costs(results_file: str = None):
                 if line.strip():
                     result = json.loads(line.strip())
                     
-                    # Skip entries without usage info
                     if 'usage_info' not in result or result.get('error'):
                         continue
                     
@@ -203,13 +223,8 @@ def analyze_costs(results_file: str = None):
                     total_tokens += usage.get('total_tokens', 0)
                     results_count += 1
                     
-                    # Track by model
                     if model not in model_stats:
-                        model_stats[model] = {
-                            'count': 0,
-                            'total_cost': 0.0,
-                            'total_tokens': 0
-                        }
+                        model_stats[model] = {'count': 0, 'total_cost': 0.0, 'total_tokens': 0}
                     
                     model_stats[model]['count'] += 1
                     model_stats[model]['total_cost'] += usage.get('cost_usd', 0)
