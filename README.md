@@ -1,1 +1,1 @@
-# benchmark-reverse-geocoding
+# IMAGEO-Bench for Image Geolocalization
