@@ -1,6 +1,8 @@
 # IMAGEO-Bench for Image Geolocalization
 
-This repository contains a complete framework for benchmarking the performance of various Large Language Models (LLMs) on the task of image geolocalization.
+Image geolocalization, the process of inferring geographic coordinates or addresses from visuals, presents a complex challenge at the intersection of computer vision and geographic information systems (GIS). The accurate identification of location from images has important implications for real-world scenarios, including digital forensics, urban analytics and crisis management. 
+
+This repository contains a complete framework for benchmarking the performance of various Large Language Models (LLMs) on the task of image geolocalization. The framework for our study is illustrated below. 
 
 <img width="3000" height="1519" alt="framework" src="https://github.com/user-attachments/assets/b4c8b80a-5311-4fc4-9c04-b69ce0099e7b" />
 
