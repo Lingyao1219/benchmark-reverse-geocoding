@@ -3,6 +3,7 @@ import re
 import ast
 from typing import Optional, Dict, Any, List, Tuple
 from openai import OpenAI
+import google.generativeai as genai
 import anthropic
 import config
 
@@ -31,24 +32,53 @@ MODEL_COSTS = {
     "meta-llama/Llama-3.2-90B-Vision-Instruct-Turbo": (1.20, 1.20),
     "meta-llama/Llama-4-Maverick-17B-128E-Instruct-FP8": (0.27, 0.85),
     "meta-llama/Llama-4-Scout-17B-16E-Instruct": (0.18, 0.59),
+
+    # Google Gemini Models
+    "gemini-1.5-pro-latest": (1.25, 5.00),
+    "gemini-2.5-flash": (0.30, 2.50),
+    "gemini-2.5-pro": (1.25, 10.00),
 }
 
 def estimate_tokens(text: str) -> int:
     """Rough estimation: ~4 characters per token for most models"""
     return len(text) // 4
 
+# def calculate_cost(input_tokens: int, output_tokens: int, model: str) -> float:
+#     """Calculate cost based on token usage and model pricing"""
+#     if model not in MODEL_COSTS:
+#         print(f"Warning: No pricing data for model {model}")
+#         return 0.0
+#     input_cost_per_1m, output_cost_per_1m = MODEL_COSTS[model]
+#     input_cost = (input_tokens / 1_000_000) * input_cost_per_1m
+#     output_cost = (output_tokens / 1_000_000) * output_cost_per_1m
+#     return input_cost + output_cost
+
 def calculate_cost(input_tokens: int, output_tokens: int, model: str) -> float:
     """Calculate cost based on token usage and model pricing"""
+    total_tokens = input_tokens + output_tokens
+
+    # ── for gemini-2.5-pro ──────────────────────────
+    if model in {"gemini-2.5-pro", "gemini-2.5-pro-latest"}:
+        if total_tokens > 200_000:             
+            input_rate, output_rate = 2.50, 15.00  # USD / 1M tokens
+        else:
+            input_rate, output_rate = 1.25, 10.00
+        return (input_tokens / 1_000_000) * input_rate + \
+               (output_tokens / 1_000_000) * output_rate
+
+    # ── Other models based on MODEL_COSTS ─────────────────────
     if model not in MODEL_COSTS:
-        print(f"Warning: No pricing data for model {model}")
-        return 0.0
-    
-    input_cost_per_1m, output_cost_per_1m = MODEL_COSTS[model]
-    
-    input_cost = (input_tokens / 1_000_000) * input_cost_per_1m
-    output_cost = (output_tokens / 1_000_000) * output_cost_per_1m
-    
-    return input_cost + output_cost
+        base_model = model.rsplit('-', 1)[0] + '-latest'
+        if base_model in MODEL_COSTS:
+            model = base_model
+        else:
+            print(f"Warning: No pricing data for model {model}")
+            return 0.0
+
+    input_rate, output_rate = MODEL_COSTS[model]
+    return (input_tokens / 1_000_000) * input_rate + \
+           (output_tokens / 1_000_000) * output_rate
+
 
 def load_api_key(provider: str) -> str:
     provider_key_map = {
@@ -153,6 +183,37 @@ def query_togetherai(
     
     return response.choices[0].message.content, usage_info
 
+def query_gemini(
+        prompt_parts: List[Any],
+        model_name: str,
+        temperature: float
+) -> Tuple[str, Dict[str, Any]]:
+    """
+    Sends a request to the Google Gemini API.
+    """
+    api_key = load_api_key(provider='gemini')
+    genai.configure(api_key=api_key)
+    model = genai.GenerativeModel(model_name)
+
+    # Gemini API's response object doesn't directly return token counts.
+    input_tokens = model.count_tokens(prompt_parts).total_tokens
+    generation_config = genai.types.GenerationConfig(
+        temperature=temperature,
+    )
+    response = model.generate_content(prompt_parts, generation_config=generation_config)
+    response_text = response.text
+
+    output_tokens = model.count_tokens(response_text).total_tokens
+
+    usage_info = {
+        'input_tokens': input_tokens,
+        'output_tokens': output_tokens,
+        'total_tokens': input_tokens + output_tokens
+    }
+    return response_text, usage_info
+
+
+
 def query_llm(
     text_prompt: str,
     system_prompt: Optional[str] = None,
@@ -208,9 +269,19 @@ def query_llm(
         
         response_text, usage_info = query_togetherai(messages_payload_tg, model, config.TEMPERATURE)
         
+    elif provider == "gemini":
+        prompt_parts = [common_system_prompt, text_prompt]
+        if image_base64_data and image_mime_type:
+            image_part = {
+                "mime_type": image_mime_type,
+                "data": image_base64_data
+            }
+            prompt_parts.insert(1, image_part)
+        response_text, usage_info = query_gemini(prompt_parts, model, config.TEMPERATURE)
+
     else:
         raise ValueError(f"Unsupported provider: {provider}")
-    
+
     # Calculate cost
     cost = calculate_cost(usage_info['input_tokens'], usage_info['output_tokens'], model)
     usage_info['cost_usd'] = cost

@@ -2,14 +2,14 @@
 SECRETS_FILE_PATH = "secrets.txt"
 
 # LLM Configuration
-MODEL = "o3"
-DEFAULT_PROVIDER = "openai" # openai, anthropic, togetherai
+MODEL = "gpt-4.1"
+DEFAULT_PROVIDER = "openai" # openai, anthropic, togetherai, gemini
 
 # LLM Query Parameters
 TEMPERATURE = 0.7
 
 # File Configuration
-DATASET = "dataset3"
+DATASET = "dataset2"
 
 # Save Filename
 if '/' in MODEL:
@@ -33,6 +33,9 @@ RESULTS_OUTPUT_FILE = f"result/{DATASET}_{MODEL_FILENAME}.jsonl"
 # meta-llama/Llama-3.2-90B-Vision-Instruct-Turbo
 # meta-llama/Llama-4-Maverick-17B-128E-Instruct-FP8
 # meta-llama/Llama-4-Scout-17B-16E-Instruct
+# gemini-1.5-pro-latest
+# gemini-2.5-pro
+# gemini-2.5-flash
 
 # "o3": (2, 8),
 # "o4-mini": (1.1, 4.4),
