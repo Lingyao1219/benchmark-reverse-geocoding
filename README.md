@@ -112,7 +112,7 @@ The project follows a two-stage workflow:
 
 
 ## 📊 Datasets
-This project utilizes three distinct, high-quality benchmark datasets designed for comprehensive and contamination-aware evaluation of image geolocation tasks.
+This project utilizes three distinct, high-quality benchmark datasets designed for comprehensive and contamination-aware evaluation of image geolocation tasks. In our code, we use dataset1, dataset2, and dataset3 to simplify the names. 
 
 * **Dataset-GSS (Dataset1): Global Streetscape Set**
     * A set of 6,152 high-quality, street-level images from 123 countries, offering wide global diversity. It is derived from the NUS Global Streetscapes dataset https://ual.sg/project/global-streetscapes/.
