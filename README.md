@@ -34,6 +34,7 @@ benchmark-reverse-geocoding/
 │       └── secrets.txt
 ├── README.md
 └── requirements.txt
+```
 
 ## 🚀 Setup and Installation
 
