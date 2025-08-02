@@ -11,6 +11,18 @@ The project is organized into two main parts:
 
 ## 📁 Project Structure
 
+.
+├── analysis/
+├── data/
+├── dataset3_feature_weights/
+├── figs/
+├── result/
+├── src/
+├── .gitignore
+├── LICENSE
+├── README.md
+├── requirements.txt
+└── secrets.txt
 
 
 ## 🚀 Setup and Installation
