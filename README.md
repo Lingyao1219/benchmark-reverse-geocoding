@@ -13,17 +13,7 @@ The project is organized into two main parts:
 
 
 
-## 🚀 Stage 1: Running the Benchmark
-
-This stage uses the application in the `src` directory to generate geocoding data.
-
-### Features
-* **Multi-Provider Support**: Out-of-the-box support for major LLM providers including OpenAI, Anthropic, Google, and TogetherAI.
-* **Cost Tracking**: Automatically calculates and logs the cost in USD for each API call based on input/output tokens.
-* **Resumable Processing**: The script automatically detects and skips images that have already been processed, allowing you to resume runs without duplicating work or cost.
-* **Structured JSON Output**: Prompts are designed to enforce a specific JSON output, which is then parsed and saved into a clean `.jsonl` file.
-
-### Setup and Installation
+## 🚀 Setup and Installation
 
 1.  **Clone the Repository**
     ```bash
@@ -52,7 +42,16 @@ This stage uses the application in the `src` directory to generate geocoding dat
     together_key,xxxxxxxxxxxxxxxxxxxxxxxxxxxxx
     ```
 
-### How to Run
+***
+
+## ⚙️ Workflow and Usage
+
+The project follows a two-stage workflow:
+
+1.  **Stage 1: Run the Benchmark**: Use the application in the `src` folder to generate the raw `.jsonl` data files.
+2.  **Stage 2: Analyze the Results**: Use the scripts in the `analysis` folder to process the generated data and create visualizations.
+
+### How to Run the Benchmark
 
 1.  **Configure the Run**: Open `src/config.py` and set the `MODEL`, `DEFAULT_PROVIDER`, and `DATASET` for your benchmark run.
 2.  **Add Images**: Place the images you want to analyze into the corresponding dataset folder (e.g., `data/dataset2/`).
@@ -62,13 +61,19 @@ This stage uses the application in the `src` directory to generate geocoding dat
     ```
     Progress will be printed to the console, and results will be saved continuously to the `result/` directory.
 
----
+***
 
-## 🔬 Stage 2: Analyzing the Results
+## 📁 File Explanations
 
-After generating data, use the scripts in the `analysis/` folder to interpret the results. These scripts consume the `.jsonl` files from the `result/` directory.
+### `src` Directory
 
-### Analysis Scripts
+* **`main.py`**: This is the main entry point of the application. It manages the image processing loop, calls the LLM for each image, handles file I/O for results, and includes a cost analysis mode.
+* **`config.py`**: A centralized configuration file where you can easily set parameters like the `MODEL` to use, the `DEFAULT_PROVIDER`, the `DATASET` folder, and the API `TEMPERATURE`.
+* **`model.py`**: This script handles all direct interactions with the different LLM provider APIs (OpenAI, Anthropic, Google, etc.). It contains the logic for formatting requests, calculating API costs, and parsing the JSON responses.
+* **`prompt.py`**: Contains the detailed system and user prompts that are sent to the LLM. It defines the required JSON output structure and provides examples to guide the model's response.
+* **`utils.py`**: A collection of helper functions used for post-processing the `.jsonl` result files. This includes functions to load data into a pandas DataFrame, calculate geographic distances, and analyze prediction accuracy.
+
+### `analysis` Directory
 
 * **`evaluation.ipynb`**: Generates scatter plots comparing predicted vs. true latitude/longitude to visualize accuracy.
 * **`heatmap.ipynb`**: Creates US state-level heatmaps of model accuracy to identify geographical performance biases.
