@@ -71,7 +71,6 @@ The project follows a two-stage workflow:
 * **`config.py`**: A centralized configuration file where you can easily set parameters like the `MODEL` to use, the `DEFAULT_PROVIDER`, the `DATASET` folder, and the API `TEMPERATURE`.
 * **`model.py`**: This script handles all direct interactions with the different LLM provider APIs (OpenAI, Anthropic, Google, etc.). It contains the logic for formatting requests, calculating API costs, and parsing the JSON responses.
 * **`prompt.py`**: Contains the detailed system and user prompts that are sent to the LLM. It defines the required JSON output structure and provides examples to guide the model's response.
-* **`utils.py`**: A collection of helper functions used for post-processing the `.jsonl` result files. This includes functions to load data into a pandas DataFrame, calculate geographic distances, and analyze prediction accuracy.
 
 ### `analysis` Directory
 
@@ -80,3 +79,4 @@ The project follows a two-stage workflow:
 * **`analyse_factors.py`**: Performs regression analysis (Logistic and Ridge) to determine which visual features (e.g., `environment`, `scene_type`) most influence prediction accuracy.
 * **`draw_feature_weights.py`**: Visualizes the feature weights calculated by `analyse_factors.py` into bar plots.
 * **`make_wordcloud.py`**: Creates a word cloud from the models' reasoning text to identify key terms used in localization.
+* **`utils.py`**: A collection of helper functions used for post-processing the `.jsonl` result files. This includes functions to load data into a pandas DataFrame, calculate geographic distances, and analyze prediction accuracy.
