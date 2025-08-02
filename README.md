@@ -11,6 +11,7 @@ The project is organized into two main parts:
 
 ## 📁 Project Structure
 
+```bash
 benchmark-reverse-geocoding/
 ├── analysis/
 │   └── result/
@@ -33,7 +34,7 @@ benchmark-reverse-geocoding/
 │       └── secrets.txt
 ├── README.md
 └── requirements.txt
-
+```
 
 ## 🚀 Setup and Installation
 
