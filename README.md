@@ -82,7 +82,7 @@ The project follows a two-stage workflow:
 ### How to Run the Benchmark
 
 1.  **Configure the Run**: Open `src/config.py` and set the `MODEL`, `DEFAULT_PROVIDER`, and `DATASET` for your benchmark run.
-2.  **Add Images**: Place the images you want to analyze into the corresponding dataset folder (e.g., `data/dataset2/`).
+2.  **Add Images**: Place the images you want to analyze into the corresponding dataset folder (e.g., `data/dataset2/`). Datasets can be downloaded from this link: https://doi.org/10.5281/zenodo.16670471.
 3.  **Execute the Script**: Run `main.py` from the root directory.
     ```bash
     python src/main.py
