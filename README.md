@@ -2,6 +2,9 @@
 
 This repository contains a complete framework for benchmarking the performance of various Large Language Models (LLMs) on the task of image geolocalization.
 
+# Overview
+Image geolocalization, the task of identifying the geographic location depicted in an image, is important for applications in crisis response, digital forensics, and location-based intelligence. While recent advances in large language models (LLMs) offer new opportunities for visual reasoning, their ability to perform image geolocalization remains underexplored. In this study, we introduce a benchmark called IMAGEO-Bench that systematically evaluates accuracy, distance error, geospatial bias, and reasoning process. Our benchmark includes three diverse datasets covering global street scenes, points of interest (POIs) in the United States, and a private collection of unseen images. Through experiments on 10 state-of-the-art LLMs, including both open- and closed-source models, we reveal clear performance disparities, with closed-source models generally showing stronger reasoning. Importantly, we uncover geospatial biases as LLMs tend to perform better in high-resource regions (e.g., North America, Western Europe, and California) while exhibiting degraded performance in underrepresented areas. Regression diagnostics demonstrate that successful geolocalization is primarily dependent on recognizing urban settings, outdoor environments, street-level imagery, and identifiable landmarks. Overall, IMAGEO-Bench provides a rigorous lens into the spatial reasoning capabilities of LLMs and offers implications for building geolocation-aware AI systems.
+
 The project is organized into two main parts:
 1.  A data generation application (`src`) that queries LLMs to produce geocoding results from images.
 2.  A suite of scripts (`analysis`) for in-depth analysis of the generated data.
