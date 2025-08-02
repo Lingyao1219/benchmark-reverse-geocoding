@@ -108,3 +108,19 @@ The project follows a two-stage workflow:
 * **`draw_feature_weights.py`**: Visualizes the feature weights calculated by `analyse_factors.py` into bar plots.
 * **`make_wordcloud.py`**: Creates a word cloud from the models' reasoning text to identify key terms used in localization.
 * **`utils.py`**: A collection of helper functions used for post-processing the `.jsonl` result files. This includes functions to load data into a pandas DataFrame, calculate geographic distances, and analyze prediction accuracy.
+* 
+
+
+## 📊 Datasets
+This project utilizes three distinct, high-quality benchmark datasets designed for comprehensive and contamination-aware evaluation of image geolocation tasks.
+
+* **Dataset-GSS (Dataset1): Global Streetscape Set**
+    * A set of 6,152 high-quality, street-level images from 123 countries, offering wide global diversity. It is derived from the NUS Global Streetscapes dataset https://ual.sg/project/global-streetscapes/.
+
+* **Dataset-UPC (Dataset2): U.S. POIs Crowdsourced Set**
+    * Contains 2,929 images of U.S. Points of Interest (POIs) compiled from a Google Maps dataset. The data is sampled to ensure balanced representation across all 50 states and 17 POI categories.
+
+* **Dataset-PCW (Dataset3): Privately Collected Wild Set**
+    * A private collection of 272 original images captured by the authors. It is designed for out-of-distribution evaluation to avoid data contamination from public web sources.
+
+***
