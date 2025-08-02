@@ -14,16 +14,16 @@ The project is organized into two main parts:
 ```bash
 benchmark-reverse-geocoding/
 ├── analysis/
-│   └── result/
-│       ├── analyse_factors.py
-│       ├── dataset1_info.csv
-│       ├── dataset2_info.csv
-│       ├── dataset3_info.csv
-│       ├── draw_feature_weights.py
-│       ├── evaluation.ipynb
-│       ├── heatmap.ipynb
-│       ├── make_wordcloud.py
-│       └── utils.py
+│   ├── result/
+│   ├── analyse_factors.py
+│   ├── dataset1_info.csv
+│   ├── dataset2_info.csv
+│   ├── dataset3_info.csv
+│   ├── draw_feature_weights.py
+│   ├── evaluation.ipynb
+│   ├── heatmap.ipynb
+│   ├── make_wordcloud.py
+│   └── utils.py
 ├── data/
 ├── src/
 │   └── images/
@@ -34,7 +34,6 @@ benchmark-reverse-geocoding/
 │       └── secrets.txt
 ├── README.md
 └── requirements.txt
-```
 
 ## 🚀 Setup and Installation
 
