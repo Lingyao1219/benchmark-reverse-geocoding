@@ -1,0 +1,24 @@
+# Core Libraries for Data Handling and Scientific Computing
+numpy
+math
+pandas
+
+# Machine Learning and Statistical Analysis
+scikit-learn
+
+# Data Visualization Libraries
+matplotlib
+seaborn
+wordcloud
+
+# Geospatial Data Handling
+geopandas
+
+# LLM Provider SDKs for API Communication
+anthropic
+google-generativeai
+openai
+
+# Image Processing Libraries
+mimetypes
+pillow_heif
