@@ -11,18 +11,28 @@ The project is organized into two main parts:
 
 ## 📁 Project Structure
 
-.
+benchmark-reverse-geocoding/
 ├── analysis/
+│   └── result/
+│       ├── analyse_factors.py
+│       ├── dataset1_info.csv
+│       ├── dataset2_info.csv
+│       ├── dataset3_info.csv
+│       ├── draw_feature_weights.py
+│       ├── evaluation.ipynb
+│       ├── heatmap.ipynb
+│       ├── make_wordcloud.py
+│       └── utils.py
 ├── data/
-├── dataset3_feature_weights/
-├── figs/
-├── result/
 ├── src/
-├── .gitignore
-├── LICENSE
+│   └── images/
+│       ├── config.py
+│       ├── main.py
+│       ├── model.py
+│       ├── prompt.py
+│       └── secrets.txt
 ├── README.md
-├── requirements.txt
-└── secrets.txt
+└── requirements.txt
 
 
 ## 🚀 Setup and Installation
