@@ -125,7 +125,18 @@ This project compiles three benchmark datasets designed for the evaluation of LL
 
 ***
 
+
 ## 📈 Result Analysis
+
+### Key Findings from Analysis
+
+* The performance across ten LLMs on **Dataset-GSS** (global street-level images) on **Dataset-UPC** (crowdsourced POI images) is presented below. Overall, LLMs show better performance on Dataset-GSS that Dataset-UPC, possibly because most images in this dataset contain outdoor and street dtails that provide clearer geographic indicators than the often indoor, context-poor images in Dataset-UPC.
+
+* **Closed-Source Models Lead**: Closed-sourced models (e.g., gpt-4.1, o3, gemini-2.5-flash, gemini-2.5-pro) from providers like Google and OpenAI consistently and substantially outperform open-source alternatives (e.g., Llama) across datasets and metrics.
+
+* **Model Scaling Helps, But Isn't Everything**: While larger models generally perform better than their smaller counterparts, model size is not the only factor. 
+
+* **Confidence Scores Can Be Misleading**: A model's self-reported confidence score is not a reliable indicator of its accuracy when compared against other models. While higher confidence can correlate with better accuracy *within a single model*, it should not be used alone to judge cross-model performance.
 
 <img width="8932" height="4162" alt="dataset1_latitude_bench" src="https://github.com/user-attachments/assets/b87f7dd3-257c-42a7-885b-1af1668caefe" />
 <img width="8906" height="4162" alt="dataset2_latitude_bench" src="https://github.com/user-attachments/assets/f62fbb0f-7110-4453-95b7-df35286396f7" />
