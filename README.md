@@ -124,3 +124,11 @@ This project compiles three benchmark datasets designed for the evaluation of LL
     * A private collection of 272 original images captured by the authors. It is designed for out-of-distribution evaluation to avoid data contamination from public web sources.
 
 ***
+
+## 📈 Result Analysis
+
+<img width="8932" height="4162" alt="dataset1_latitude_bench" src="https://github.com/user-attachments/assets/b87f7dd3-257c-42a7-885b-1af1668caefe" />
+<img width="8906" height="4162" alt="dataset2_latitude_bench" src="https://github.com/user-attachments/assets/f62fbb0f-7110-4453-95b7-df35286396f7" />
+
+
+
