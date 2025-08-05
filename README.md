@@ -142,4 +142,18 @@ This project compiles three benchmark datasets designed for the evaluation of LL
 <img width="8906" height="4162" alt="dataset2_latitude_bench" src="https://github.com/user-attachments/assets/f62fbb0f-7110-4453-95b7-df35286396f7" />
 
 
+## 📄 Reference
+```
+@misc{li2025pixelsplacessystematicbenchmark,
+      title={From Pixels to Places: A Systematic Benchmark for Evaluating Image Geolocalization Ability in Large Language Models}, 
+      author={Lingyao Li and Runlong Yu and Qikai Hu and Bowei Li and Min Deng and Yang Zhou and Xiaowei Jia},
+      year={2025},
+      eprint={2508.01608},
+      archivePrefix={arXiv},
+      primaryClass={cs.CV},
+      url={https://arxiv.org/abs/2508.01608}, 
+}
+```
+
+
 
